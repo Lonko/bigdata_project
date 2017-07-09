@@ -6,7 +6,6 @@ import java.util.List;
 import java.util.Map;
 
 import models.Article;
-import models.ArticleReference;
 
 import org.neo4j.driver.v1.AuthTokens;
 import org.neo4j.driver.v1.Driver;
@@ -87,8 +86,7 @@ public class Neo4jConnector {
     		List<String> references = this.getReferences(e.getKey(), session);
     		for(String ref : references){
     			Article destination = articles.get(ref);
-    			ArticleReference aRef = new ArticleReference(e.getValue(), destination);
-    			e.getValue().addReference(aRef);
+    			e.getValue().addReference(destination);
     		}
     	}); 
     	
