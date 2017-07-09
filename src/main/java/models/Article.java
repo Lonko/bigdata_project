@@ -15,12 +15,16 @@ public class Article {
 	private URI articleUri;
 	private List<ArticleReference> references;
 	
-	public Article(String title, String year, String journal, String abs){
+	public Article(String title, String year, String journal) {
 		this.title = title;
 		this.year = year;
 		this.journal = journal;
-		this.articleAbstract = abs;
 		this.references = new LinkedList<>();
+	}
+	
+	public Article(String title, String year, String journal, String abs){
+		this(title,year,journal);
+		this.articleAbstract = abs;
 	}
 
 	public String getTitle() {
