@@ -1,3 +1,4 @@
+src/main/java/connectors/Neo4jMain.java
 target/
 .settings/
 .classpath
