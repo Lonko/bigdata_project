@@ -12,12 +12,11 @@ public class Article {
 	private URI articleUri;
 	private List<ArticleReference> references;
 	
-	public Article(String title, String year, String journal, String abs, URI uri){
+	public Article(String title, String year, String journal, String abs){
 		this.title = title;
 		this.year = year;
 		this.journal = journal;
 		this.articleAbstract = abs;
-		this.articleUri = uri;
 		this.references = new LinkedList<>();
 	}
 
