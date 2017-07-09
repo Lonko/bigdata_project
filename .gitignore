@@ -1,6 +1,6 @@
-src/main/java/connectors/Neo4jMain.java
 src/main/resources/ogm.properties
 target/
 .settings/
 .classpath
 .project
+credentials.txt

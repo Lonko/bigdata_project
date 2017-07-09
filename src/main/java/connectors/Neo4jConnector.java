@@ -63,6 +63,7 @@ public class Neo4jConnector {
     /*get references for a single node */
     private List<String> getReferences(String title, Session session){
     	List<String> refs= new LinkedList<>();
+    	System.out.println("TITOLO: "+title);
 
     	StatementResult result = session.run(
     			"MATCH (p1:Paper{name:\"" + title + "\"})-[r:PAPER_REFERENCE]->(p2:Paper) "
@@ -71,6 +72,7 @@ public class Neo4jConnector {
     	{
     		Record record = result.next();
     		String titleReference = record.get("title").asString();
+    		System.out.println(titleReference);
     		refs.add(titleReference);
     	}
     	
