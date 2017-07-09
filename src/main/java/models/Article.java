@@ -1,8 +1,11 @@
 package models;
 
 import java.net.URI;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Objects;
+import java.util.Set;
 
 public class Article {
 	private String title;
@@ -70,6 +73,19 @@ public class Article {
 	
 	public void addReference(ArticleReference ref){
 		this.references.add(ref);
-	}	
+	}
+	
+	@Override
+	public int hashCode() {
+		return Objects.hash(title, year, journal);
+	}
+	
+	@Override
+	public boolean equals(Object other) {
+		Article o = (Article) other;
+		return Objects.equals(title, o.title) &&
+				Objects.equals(year, o.year) &&
+				Objects.equals(journal, o.journal);
+	}
 	
 }
