@@ -9,20 +9,12 @@ public class Author {
 	
 	private String name;
 	private List<String> interests;
-	private List<Article> articles;
+	private List<Article> articles = new LinkedList<>();
 
-	/*constructor for author without valid interests*/
-	public Author(String name, List<Article> articles){
+	public Author(String name, String interests){
 		this.name = name;
-		this.articles = articles;
-		this.interests = new LinkedList<>();
-	}
-	
-	/*constructor for author with valid interests*/
-	public Author(String name, List<Article> articles, List<String> interests){
-		this.name = name;
-		this.articles = articles;
-		this.interests = interests;
+		for(String interest : interests.split(";"))
+			this.interests.add(interest);
 	}	
 	
 	public String getName() {
