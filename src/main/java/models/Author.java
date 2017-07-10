@@ -41,27 +41,4 @@ public class Author {
 		this.articles = articles;
 	}
 	
-	public double distance(Author other) {
-		Set<Article> articles = new HashSet<>(getArticles());
-		Set<Article> otherArticles = new HashSet<>(other.getArticles());
-
-		Set<Article> union = new HashSet<>();
-		Set<Article> diff1 = new HashSet<>();
-		Set<Article> diff2 = new HashSet<>();
-		Set<Article> unionDiff = new HashSet<>();
-		
-		union.addAll(articles);
-		union.addAll(otherArticles);
-		
-		diff1.addAll(articles);
-		diff1.removeAll(otherArticles);
-				
-		diff2.addAll(otherArticles);
-		diff2.removeAll(articles);
-		
-		unionDiff.addAll(diff1);
-		unionDiff.addAll(diff2);
-		
-		return (double) unionDiff.size() / (double) union.size();
-	}
 }

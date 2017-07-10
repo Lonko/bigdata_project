@@ -1,11 +1,9 @@
 package models;
 
 import java.net.URI;
-import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Objects;
-import java.util.Set;
 
 public class Article {
 	private String title;
@@ -13,14 +11,18 @@ public class Article {
 	private String journal;
 	private String articleAbstract;
 	private URI articleUri;
-	private List<ArticleReference> references;
+	private List<Article> references;
 	
-	public Article(String title, String year, String journal, String abs){
+	public Article(String title, String year, String journal) {
 		this.title = title;
 		this.year = year;
 		this.journal = journal;
-		this.articleAbstract = abs;
 		this.references = new LinkedList<>();
+	}
+	
+	public Article(String title, String year, String journal, String abs){
+		this(title,year,journal);
+		this.articleAbstract = abs;
 	}
 
 	public String getTitle() {
@@ -63,15 +65,15 @@ public class Article {
 		this.articleUri = articleUri;
 	}
 
-	public List<ArticleReference> getReferences() {
+	public List<Article> getReferences() {
 		return references;
 	}
 	
-	public void setReferences(List<ArticleReference> references) {
+	public void setReferences(List<Article> references) {
 		this.references = references;
 	}
 	
-	public void addReference(ArticleReference ref){
+	public void addReference(Article ref){
 		this.references.add(ref);
 	}
 	
