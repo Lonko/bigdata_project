@@ -25,8 +25,8 @@ import models.Author;
  * @author fabio
  *
  */
-public class RDFController {
-	private Logger log = Logger.getLogger(RDFController.class.getName());
+public class RDFController implements java.io.Serializable {
+	private static final long serialVersionUID = 1L;
 	
 	private RemoteRepository repo;
 	
@@ -63,7 +63,6 @@ public class RDFController {
 				result.close();
 			}
 		} catch (Exception e) {
-			log.log(Level.WARNING, "Article not found");
 			return null;
 		}
 	}
@@ -102,7 +101,7 @@ public class RDFController {
 							Set<URI> rdfAuthors = new HashSet<>(getSameAuthors(c));
 							visited.addAll(rdfAuthors);
 							for (URI a : rdfAuthors) {
-								List<Article> articles = getArticlesOfAuthor(a);
+								List<String> articles = getArticlesOfAuthor(a);
 								if (articlesDistance(author.getArticles(), articles)<threshold) {
 									return rdfAuthors;
 								}
@@ -125,16 +124,14 @@ public class RDFController {
 	 * @param author
 	 * @return
 	 */
-	public List<Article> getArticlesOfAuthor(URI author) {
-		List<Article> articles = new ArrayList<>();
+	public List<String> getArticlesOfAuthor(URI author) {
+		List<String> articles = new ArrayList<>();
 
-		String query = "SELECT ?article ?title ?year ?journal "
+		String query = "SELECT ?article ?title "
 				+ "WHERE { "
 				+ "?article opus:author ?seq . "
 				+ "?seq ?x <"+author.toString()+"> . "
 				+ "?article rdfs:label ?title . "
-				+ "?article opus:year ?year . "
-				+ "?article opus:journal_name ?journal"
 				+ "} ";
 		
 		try {
@@ -143,16 +140,13 @@ public class RDFController {
 				while (result.hasNext()) {
 					BindingSet bs = result.next();
 					String title = bs.getValue("title").stringValue();
-					String year = bs.getValue("year").stringValue();
-					String journal = bs.getValue("journal").stringValue();
-					articles.add(new Article(title,year,journal));
+					articles.add(title);
 				}
 				return articles;
 			} finally {
 				result.close();
 			}
 		} catch (Exception e) {
-			log.log(Level.WARNING, "Articles not found");
 			return articles;
 		}
 	}
@@ -208,18 +202,18 @@ public class RDFController {
 	 * @param list2 second articles list
 	 * @return the symmetric difference as a value between 0 and 1
 	 */
-	public double articlesDistance(List<Article> list1, List<Article> list2) {
+	public double articlesDistance(List<String> list1, List<String> list2) {
 		list1.stream()
-		.map(a -> new Article(a.getTitle(), a.getYear()))
+		.map(t -> normalizeTitle(t))
 		.collect(Collectors.toSet());
 		
-		Set<Article> articles = new HashSet<>(list1);
-		Set<Article> otherArticles = new HashSet<>(list2);
+		Set<String> articles = new HashSet<>(list1);
+		Set<String> otherArticles = new HashSet<>(list2);
 
-		Set<Article> union = new HashSet<>();
-		Set<Article> diff1 = new HashSet<>();
-		Set<Article> diff2 = new HashSet<>();
-		Set<Article> unionDiff = new HashSet<>();
+		Set<String> union = new HashSet<>();
+		Set<String> diff1 = new HashSet<>();
+		Set<String> diff2 = new HashSet<>();
+		Set<String> unionDiff = new HashSet<>();
 		
 		union.addAll(articles);
 		union.addAll(otherArticles);
@@ -244,8 +238,8 @@ public class RDFController {
 		}
 	}
 	
-	private String normalizeString() {
-		return null;
+	private String normalizeTitle(String title) {
+		return "";
 	}
 	
 	private String prefixes() {

@@ -1,56 +1,43 @@
 package main;
 
 import java.net.URI;
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.RandomAccess;
 
 import models.Article;
+import models.Author;
 import rdf.RDFController;
-import scala.Tuple2;
 
 import org.apache.spark.SparkConf;
 import org.apache.spark.SparkContext;
-import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
-import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
 import org.neo4j.spark.Neo4JavaSparkContext;
 
 import static org.apache.spark.storage.StorageLevel.MEMORY_AND_DISK_SER;
 
 
-public class Main {
+public class Main implements java.io.Serializable {
+	private static final long serialVersionUID = 1L;
 	
-	private RDFController controller = new RDFController(
-			"http://ec2-34-212-137-94.us-west-2.compute.amazonaws.com:9999/blazegraph",
-			"kb");
-	
-	private Neo4JavaSparkContext context;
-	
-	public Main() {
-	}
+	private final static String RDF_SERVICE = 
+			"http://ec2-34-212-137-94.us-west-2.compute.amazonaws.com:9999/blazegraph";
+	private final static String RDF_NAMESPACE = "kb";	
 
 	public static void main(String[] args) {
-		Main main = new Main();
-		main.parseArticles();
-	}
-	
-	private void parseArticles() {
-		//URI tim = URI.create("http://www.informatik.uni-trier.de/~ley/db/indices/a-tree/b/Berners=Lee:Tim.html");
-		//controller.getArticlesOfAuthor(tim).forEach(a -> System.out.println(a.getTitle()));
-		//controller.closeConnection();
-				
 		SparkConf conf = new SparkConf().setAppName("Authors-Articles KG");
 		SparkContext sc = new SparkContext(conf);
-		context = Neo4JavaSparkContext.neo4jContext(sc);
+		Neo4JavaSparkContext context = Neo4JavaSparkContext.neo4jContext(sc);
+		
+		Main main = new Main();
+		main.parseArticles(context);
+	}
+	
+	private void parseArticles(Neo4JavaSparkContext context) {
 		
 		String query = "MATCH (p:Paper) "
 				+ "WHERE p.year IN [\"2000\",\"2001\",\"2002\",\"2003\",\"2004\",\"2005\"] "
 				+ "WITH p "
+				+ "LIMIT 20 " // TEST
 				+ "OPTIONAL MATCH (p)-[r]->(p2:Paper) "
 				+ "RETURN p.title, p.year, p.venue, p.abstract, collect(p2.title+\"\t\") as references";
 		
@@ -71,28 +58,41 @@ public class Main {
 					return a;
 				});
 				
-		articles.foreach(this::update);
+		articles
+		
+		.foreach(a -> update(a, RDF_SERVICE, RDF_NAMESPACE));
 	}
 	
-	private void parseAuthors() {
+	private void parseAuthors(Neo4JavaSparkContext context) {
 		String query = "MATCH (p:Paper)"
 				+ "WHERE p.year IN [\"2000\",\"2001\",\"2002\",\"2003\",\"2004\",\"2005\"] "
 				+ "WITH p.title as t, SPLIT(p.author_ids, \",\") as ids "
 				+ "MATCH (a:Author) "
 				+ "WHERE a.name in ids "
-				+ "RETURN a.author_name, a.interests, collect(t) as titles";
+				+ "RETURN a.author_name, a.interests, collect(t+\"\t\") as titles";
 		
 		JavaRDD<Row> authorRows = context.queryRow(query, new HashMap<String,Object>());
 		
-		
-
+		JavaRDD<Author> authors = 
+				authorRows
+				.map(r -> {
+					Author a = new Author(r.getString(0), r.getString(1));
+					String[] titles = r.get(2).toString().replaceAll("\\[|\\]", "").split("\t,");
+					for (String t : titles) {
+						a.addArticle(t);
+					}
+					return a;
+				});
 	}
 	
-	private void update(Article article) {
+	private void update(Article article, String service, String namespace) {
+		RDFController controller = new RDFController(service,namespace);
+		
 		URI articleURI = controller.lookUpArticle(article);
 		System.out.println(articleURI);
 		
-		
+		controller.closeConnection();
+				
 //		ADD N opus:abstract article.getAbstract()
 //		for each RDFNode A : N opus:author A
 //			ADD A foaf:publications N

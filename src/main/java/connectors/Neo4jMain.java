@@ -23,18 +23,18 @@ public class Neo4jMain {
         }catch(Exception e){
         	e.printStackTrace();
         }
-		Neo4jConnector n4j = new Neo4jConnector(host, user, pass);
+		//Neo4jConnector n4j = new Neo4jConnector(host, user, pass);
 		System.out.println("CONNESSIONE");
-		n4j.connect();
+		//n4j.connect();
 		System.out.println("QUERY");
-		Map<String, Article> arts = n4j.getAllArticles();
-		System.out.println(arts.size());
-		n4j.getAllReferences(arts);
+		//Map<String, Article> arts = n4j.getAllArticles();
+		//System.out.println(arts.size());
+		//n4j.getAllReferences(arts);
 //		arts.entrySet().stream().forEach(entry -> {
 //			System.out.println(entry.getKey().toUpperCase());
 //			entry.getValue().getReferences().forEach(r -> System.out.println(r));
 //		});
-		n4j.close();
+		//n4j.close();
 		System.out.println("CONNESSIONE CHIUSA");
 	}
 }
