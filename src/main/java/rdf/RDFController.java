@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.stream.Collectors;
 
 import org.openrdf.query.BindingSet;
 import org.openrdf.query.TupleQueryResult;
@@ -48,13 +49,7 @@ public class RDFController {
 	 */
 	public URI lookUpArticle(Article article) {
 		String title = article.getTitle();
-		//TODO: JAR with normalized function
-		String query = "SELECT ?article "
-				+ "WHERE { "
-				+ "?article rdf:type opus:Article . "
-				+ "?article rdfs:label ?title . "
-				+ "FILTER (normalized(?title) = "+title+") . "
-				+ "}";
+		String query = "SELECT ?article WHERE { ?article rdfs:label \""+title+"\" }";
 		
 		try {
 			TupleQueryResult result = repo.prepareTupleQuery(prefixes()+query).evaluate();
@@ -84,9 +79,9 @@ public class RDFController {
 		String queryCandidates = "SELECT ?author "
 				+ "WHERE { "
 				+ "?author rdf:type foaf:Person . "
-				+ "?author foaf:name ?name ."
-				+ "BIND(cfn:distance(+"+name+", str(?name) as ?dist) . "
-				+ "FILTER(?dist < +"+threshold+") "
+				+ "?author foaf:name \""+name+"\" ."
+				//+ "BIND(cfn:distance(+"+name+", str(?name) as ?dist) . "
+				//+ "FILTER(?dist < +"+threshold+") "
 				+ "} "
 				+ "ORDER BY ?dist";
 
@@ -214,6 +209,10 @@ public class RDFController {
 	 * @return the symmetric difference as a value between 0 and 1
 	 */
 	public double articlesDistance(List<Article> list1, List<Article> list2) {
+		list1.stream()
+		.map(a -> new Article(a.getTitle(), a.getYear()))
+		.collect(Collectors.toSet());
+		
 		Set<Article> articles = new HashSet<>(list1);
 		Set<Article> otherArticles = new HashSet<>(list2);
 
@@ -243,6 +242,10 @@ public class RDFController {
 		} catch (Exception e) {
 			// TODO
 		}
+	}
+	
+	private String normalizeString() {
+		return null;
 	}
 	
 	private String prefixes() {

@@ -13,7 +13,7 @@ public class Article implements java.io.Serializable {
 	private String journal;
 	private String articleAbstract;
 	private URI articleUri;
-	private List<Article> references;
+	private List<String> references;
 	
 	public Article(String title, String year, String journal) {
 		this.title = title;
@@ -22,11 +22,16 @@ public class Article implements java.io.Serializable {
 		this.references = new LinkedList<>();
 	}
 	
+	public Article(String title, String year) {
+		this.title = title;
+		this.year = year;
+	}
+	
 	public Article(String title, String year, String journal, String abs){
 		this(title,year,journal);
 		this.articleAbstract = abs;
 	}
-
+	
 	public String getTitle() {
 		return title;
 	}
@@ -67,15 +72,15 @@ public class Article implements java.io.Serializable {
 		this.articleUri = articleUri;
 	}
 
-	public List<Article> getReferences() {
+	public List<String> getReferences() {
 		return references;
 	}
 	
-	public void setReferences(List<Article> references) {
+	public void setReferences(List<String> references) {
 		this.references = references;
 	}
 	
-	public void addReference(Article ref){
+	public void addReference(String ref){
 		this.references.add(ref);
 	}
 	
@@ -86,15 +91,14 @@ public class Article implements java.io.Serializable {
 	
 	@Override
 	public int hashCode() {
-		return Objects.hash(title, year, journal);
+		return Objects.hash(title,year);
 	}
 	
 	@Override
 	public boolean equals(Object other) {
 		Article o = (Article) other;
-		return Objects.equals(title, o.title) &&
-				Objects.equals(year, o.year) &&
-				Objects.equals(journal, o.journal);
+		return Objects.equals(title, o.title) 
+				&& Objects.equals(year, o.year);
 	}
 	
 }
