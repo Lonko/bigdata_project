@@ -5,7 +5,9 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Objects;
 
-public class Article {
+public class Article implements java.io.Serializable {
+	private static final long serialVersionUID = 1L;
+	
 	private String title;
 	private String year;
 	private String journal;
@@ -75,6 +77,11 @@ public class Article {
 	
 	public void addReference(Article ref){
 		this.references.add(ref);
+	}
+	
+	@Override
+	public String toString() {
+		return getTitle()+", "+getYear()+", "+getJournal()+", "+getArticleAbstract();
 	}
 	
 	@Override
