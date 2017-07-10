@@ -7,6 +7,8 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import org.openrdf.query.BindingSet;
 import org.openrdf.query.TupleQueryResult;
@@ -18,6 +20,8 @@ import models.Article;
 import models.Author;
 
 public class RDFController {
+	private Logger log = Logger.getLogger(RDFController.class.getName());
+	
 	private RemoteRepository repo;
 	
 	/**
@@ -26,8 +30,6 @@ public class RDFController {
 	 * @param namespace
 	 */
 	public RDFController(String service, String namespace) {
-		//service = http://ec2-34-212-137-94.us-west-2.compute.amazonaws.com:9999/blazegraph
-		//namespace = kb
 		try {
 			repo = BlazeGraphFactory.getRemoteRepository(service, namespace);
 		} catch (Exception e) {
@@ -61,6 +63,7 @@ public class RDFController {
 				result.close();
 			}
 		} catch (Exception e) {
+			log.log(Level.WARNING, "Article not found");
 			return null;
 		}
 	}
@@ -127,10 +130,10 @@ public class RDFController {
 	public List<Article> getArticlesOfAuthor(URI author) {
 		List<Article> articles = new ArrayList<>();
 
-		String query = "SELECT ?article "
+		String query = "SELECT ?article ?title ?year ?journal "
 				+ "WHERE { "
 				+ "?article opus:author ?seq . "
-				+ "?seq ?x +"+author+" . "
+				+ "?seq ?x <"+author.toString()+"> . "
 				+ "?article rdfs:label ?title . "
 				+ "?article opus:year ?year . "
 				+ "?article opus:journal_name ?journal"
@@ -151,6 +154,7 @@ public class RDFController {
 				result.close();
 			}
 		} catch (Exception e) {
+			log.log(Level.WARNING, "Articles not found");
 			return articles;
 		}
 	}
@@ -161,25 +165,26 @@ public class RDFController {
 	 * @return
 	 */
 	public List<URI> getSameAuthors(URI author) {
+		String authorString = author.toString();
 		List<URI> authors = Arrays.asList(author);
 		
 		String query = "SELECT ?author "
 				+ "WHERE{"
 				+ "{ "
-				+ author+" owl:sameAs ?sameAuthor . "
+				+ "<"+authorString+"> owl:sameAs ?sameAuthor . "
 				+ "bind (?sameAuthor as ?author) "
 				+ "} "
 				+ "UNION "
 				+ "{ "
-				+ "?sameAuthor owl:sameAs "+author+" . "
+				+ "?sameAuthor owl:sameAs <"+authorString+"> . "
 				+ "bind (?sameAuthor as ?author)"
 				+ "} "
 				+ "UNION "
 				+ "{ "
-				+ "?sameAuthor owl:sameAs "+author+" ; "
+				+ "?sameAuthor owl:sameAs <"+authorString+"> ; "
 				+ "owl:sameAs ?anotherAuthor . "
 				+ "bind (?anotherAuthor as ?author) "
-				+ "filter (?author != "+author+")";
+				+ "filter (?author != <"+authorString+">)";
 		
 		try {
 			TupleQueryResult result = repo.prepareTupleQuery(prefixes()+query).evaluate();
