@@ -2,13 +2,14 @@ package models;
 
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Objects;
 
 public class Author implements java.io.Serializable{
 	private static final long serialVersionUID = 1L;
 	
 	private String name;
 	private List<String> interests;
-	private List<Article> articles = new LinkedList<>();
+	private List<String> articles = new LinkedList<>();
 
 	public Author(String name, String interests){
 		this.name = name;
@@ -32,12 +33,24 @@ public class Author implements java.io.Serializable{
 		this.interests = interests;
 	}
 
-	public List<Article> getArticles() {
+	public List<String> getArticles() {
 		return articles;
 	}
 
-	public void setArticles(List<Article> articles) {
-		this.articles = articles;
+	public void addArticle(String title) {
+		articles.add(title);
+	}
+	
+	@Override
+	public int hashCode() {
+		return Objects.hash(name, articles);
+	}
+	
+	@Override
+	public boolean equals(Object other) {
+		Author o = (Author) other;
+		return Objects.equals(name, o.name) 
+				&& Objects.equals(articles, o.articles);
 	}
 	
 }
