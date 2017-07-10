@@ -19,6 +19,11 @@ import connectors.BlazeGraphFactory;
 import models.Article;
 import models.Author;
 
+/**
+ * Controller class to perform API calls to BlazeGraph RDF storage.
+ * @author fabio
+ *
+ */
 public class RDFController {
 	private Logger log = Logger.getLogger(RDFController.class.getName());
 	
@@ -99,13 +104,11 @@ public class RDFController {
 				if (!candidates.isEmpty()) {
 					for (URI c : candidates) {
 						if (!visited.contains(c)) {
-							Set<URI> rdfAuthors = new HashSet<>();
-							rdfAuthors.add(c);
-							rdfAuthors.addAll(getSameAuthors(c));
+							Set<URI> rdfAuthors = new HashSet<>(getSameAuthors(c));
 							visited.addAll(rdfAuthors);
 							for (URI a : rdfAuthors) {
 								List<Article> articles = getArticlesOfAuthor(a);
-								if (articlesDistance(author.getArticles(), articles)<0.2) {
+								if (articlesDistance(author.getArticles(), articles)<threshold) {
 									return rdfAuthors;
 								}
 							}
@@ -160,7 +163,8 @@ public class RDFController {
 	}
 	
 	/**
-	 * Returns a List of URIs representing the same URI Author as the one given in input.
+	 * Returns a List of URIs representing the same URI Author as the one given in input,
+	 * or a List containing only the author in input if there are no owl:sameAs relations.
 	 * @param author
 	 * @return
 	 */
@@ -198,15 +202,16 @@ public class RDFController {
 				result.close();
 			}
 		} catch (Exception e) {
-			return null;
+			return authors;
 		}
     }
 	
 	/**
-	 * Returns the symmetric set difference between two sets of Articles.
-	 * @param list1
-	 * @param list2
-	 * @return
+	 * Returns the symmetric set difference between two sets of Articles.<br>
+	 * A distance of 0 means perfect matching. A distance of 1 means the lists are disjoint
+	 * @param list1 first articles list
+	 * @param list2 second articles list
+	 * @return the symmetric difference as a value between 0 and 1
 	 */
 	public double articlesDistance(List<Article> list1, List<Article> list2) {
 		Set<Article> articles = new HashSet<>(list1);
