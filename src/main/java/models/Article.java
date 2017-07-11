@@ -1,6 +1,5 @@
 package models;
 
-import java.net.URI;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Objects;
@@ -12,7 +11,6 @@ public class Article implements java.io.Serializable {
 	private String year;
 	private String journal;
 	private String articleAbstract;
-	private URI articleUri;
 	private List<String> references;
 	
 	public Article(String title, String year, String journal) {
@@ -62,14 +60,6 @@ public class Article implements java.io.Serializable {
 
 	public void setArticleAbstract(String articleAbstract) {
 		this.articleAbstract = articleAbstract;
-	}
-
-	public URI getArticleUri() {
-		return articleUri;
-	}
-
-	public void setArticleUri(URI articleUri) {
-		this.articleUri = articleUri;
 	}
 
 	public List<String> getReferences() {

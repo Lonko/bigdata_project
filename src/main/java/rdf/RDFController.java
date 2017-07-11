@@ -3,7 +3,6 @@ package rdf;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -92,54 +91,66 @@ public class RDFController implements java.io.Serializable {
 		}
 	}
 	
+	public void updateQuery(String update) {
+		try {
+			repo.prepareUpdate(prefixes()+update).evaluate();
+		} catch (Exception e) {
+			//TODO ...
+		}
+	}
+	
 	
 	/**
-	 * Returns a Collection of URIs representing the same Author object as the one given in input.
+	 * Returns a URI representing the same Author object as the one given in input.
 	 * @param author
 	 * @return
 	 */
-	public Collection<URI> lookUpAuthor(Author author) {
+	public String lookUpAuthor(Author author) {
 		double threshold = 0.2;
 		String name = author.getName();
-		String queryCandidates = "SELECT ?author "
+		String queryCandidates = "SELECT ?author ?title "
 				+ "WHERE { "
-				+ "?author rdf:type foaf:Person . "
 				+ "?author foaf:name \""+name+"\" ."
-				+ "} "
-				+ "ORDER BY ?dist";
+				+ "?article opus:author ?seq . "
+				+ "?seq ?x ?author . "
+				+ "?article rdfs:label ?title . "
+				+ "} ";
 
 		try {
-			List<URI> candidates = new ArrayList<>();
+			Map<String, List<String>> candidates = new HashMap<>();
 			TupleQueryResult result = repo.prepareTupleQuery(prefixes()+queryCandidates).evaluate();
 			try {
 				while (result.hasNext()) {
 					BindingSet bs = result.next();
-					candidates.add(URI.create(bs.getValue("author").stringValue()));
+					String auth = bs.getValue("author").stringValue();
+					String title = bs.getValue("title").stringValue();
+					List<String> titles = candidates.get(auth);
+					if (titles == null) {
+						titles = new ArrayList<>();
+						candidates.put(auth, titles);
+					}
+					titles.add(title);
 				}
 				
-				Set<URI> visited = new HashSet<>(); // globally visited authors
+				//Set<URI> visited = new HashSet<>(); // globally visited authors
 
 				if (!candidates.isEmpty()) {
-					for (URI c : candidates) {
-						if (!visited.contains(c)) {
-							Set<URI> rdfAuthors = new HashSet<>(getSameAuthors(c));
-							visited.addAll(rdfAuthors);
-							for (URI a : rdfAuthors) {
-								List<String> articles = getArticlesOfAuthor(a);
-								if (articlesDistance(author.getArticles(), articles)<threshold) {
-									return rdfAuthors;
-								}
-							}
-							return new HashSet<>();
-						}
+					for (String c : candidates.keySet()) {
+						//if (!visited.contains(c)) {
+							//Set<URI> rdfAuthors = new HashSet<>(getSameAuthors(c));
+							//visited.addAll(rdfAuthors);
+							//for (URI a : rdfAuthors) {
+						List<String> articles = candidates.get(c);
+						if (articlesDistance(author.getArticles(), articles)<threshold)
+							return "<"+c+">";
 					}
 				}
-				return new HashSet<>();
+				return "";
 			} finally {
 				result.close();
 			}
 		} catch (Exception e) {
-			return new HashSet<>();
+			return "";
 		}
 	}
 	
