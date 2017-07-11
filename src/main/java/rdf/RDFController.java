@@ -4,11 +4,11 @@ import java.net.URI;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
 import org.openrdf.query.BindingSet;
@@ -22,7 +22,6 @@ import models.Author;
 
 /**
  * Controller class to perform API calls to BlazeGraph RDF storage.
- * @author fabio
  *
  */
 public class RDFController implements java.io.Serializable {
@@ -67,6 +66,33 @@ public class RDFController implements java.io.Serializable {
 		}
 	}
 	
+	public Map<String,List<String>> getURICitationsMap(String query) {
+		Map<String,List<String>> citationsMap = new HashMap<>();
+		
+		try {
+			TupleQueryResult result = repo.prepareTupleQuery(prefixes()+query).evaluate();
+			try {
+				while (result.hasNext()) {
+					BindingSet bs = result.next();
+					String article = "<"+bs.getValue("article").stringValue()+">";
+					String citedArticle = "<"+bs.getValue("citArticle").stringValue()+">";
+					List<String> citations = citationsMap.get(article);
+					if (citations==null) {
+						citations = new ArrayList<>();
+						citationsMap.put(article, citations);
+					}
+					citations.add(citedArticle);
+				}
+				return citationsMap;
+			} finally {
+				result.close();
+			}
+		} catch (Exception e) {
+			return citationsMap;
+		}
+	}
+	
+	
 	/**
 	 * Returns a Collection of URIs representing the same Author object as the one given in input.
 	 * @param author
@@ -79,8 +105,6 @@ public class RDFController implements java.io.Serializable {
 				+ "WHERE { "
 				+ "?author rdf:type foaf:Person . "
 				+ "?author foaf:name \""+name+"\" ."
-				//+ "BIND(cfn:distance(+"+name+", str(?name) as ?dist) . "
-				//+ "FILTER(?dist < +"+threshold+") "
 				+ "} "
 				+ "ORDER BY ?dist";
 
