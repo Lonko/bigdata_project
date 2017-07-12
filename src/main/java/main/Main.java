@@ -14,19 +14,29 @@ public class Main implements java.io.Serializable {
 			System.out.println("USAGE:\n"
 					+ "<blazegraph server URL>\n"
 					+ "<blazegraph namespace>\n"
-					+ "<Start Year>\n"
-					+ "<End Year>");
+					+ "<batch size>\n"
+					+ "<total papers>");
 			return;
 		}
 		
-		KnowledgeGraphsCreator kg = new KnowledgeGraphsCreator(args[0], args[1], args[2], args[3]);
+		KnowledgeGraphsCreator kg = new KnowledgeGraphsCreator(args[0], args[1]);
 		
 		SparkConf conf = new SparkConf().setAppName("DBLP Authors-Articles KG");
 		SparkContext sc = new SparkContext(conf);
 		Neo4JavaSparkContext context = Neo4JavaSparkContext.neo4jContext(sc);
 		
-		kg.parseArticles(context);
-		//main.parseAuthors(context);
+		int batchSize = Integer.valueOf(args[2]);
+		int totalPapers = Integer.valueOf(args[3]);
+		
+		int i=0;
+		while (i<totalPapers) {
+			long timeMillis = System.currentTimeMillis();
+			kg.parseArticles(context, i+1, i+batchSize);
+			kg.parseAuthors(context, i+1, i+batchSize);
+			double elapsedTime = (double)(timeMillis - System.currentTimeMillis()) / 1000;
+			System.out.println(elapsedTime);
+			i += batchSize;
+		}
 	}
 	
 }

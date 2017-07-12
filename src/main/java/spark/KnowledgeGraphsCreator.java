@@ -10,39 +10,23 @@ import scala.Tuple2;
 
 //import static org.apache.spark.storage.StorageLevel.MEMORY_AND_DISK_SER;
 
-public class KnowledgeGraphsCreator {
+public class KnowledgeGraphsCreator implements java.io.Serializable {
+	private static final long serialVersionUID = 1L;
 	
 	private final String rdfService;
 	private final String rdfNamespace;
-	private final String yearRange;
 	
-	public KnowledgeGraphsCreator(String service, String namespace, String initYear, String endYear) {
+	public KnowledgeGraphsCreator(String service, String namespace) {
 		rdfService = service;
 		rdfNamespace = namespace;
-		yearRange = formatRange(initYear, endYear);
-		System.out.println(yearRange);
 	}
 	
-	private String formatRange(String start, String end) {
-		int e = Integer.valueOf(end);
-		int s = Integer.valueOf(start);
-		
-		int range = e - s;
-		StringBuilder build = new StringBuilder("[\""+s+"\"");
-		for (int i=1; i<=range; i++) {
-			build.append(",\""+(s+i)+"\"");
-		}
-		build.append("] ");
-		return build.toString();
-	}
-	
-	public void parseArticles(Neo4JavaSparkContext context) {
+	public void parseArticles(Neo4JavaSparkContext context, int start, int end) { 
 		String query = "MATCH (p:Paper) "
-				//+ "WHERE p.year IN "+yearRange
-				+ "WHERE p.title = \"RoadRunner: automatic data extraction from data-intensive web sites\" "
+				+ "WHERE p.name >= "+start+" and p.name <= "+end+" "
 				+ "WITH p "
 				+ "OPTIONAL MATCH (p)-[r]->(p2:Paper) "
-				+ "RETURN p.title, p.year, p.venue, p.abstract, collect(p2.title+\"\t\") as references";
+				+ "RETURN p.title, p.abstract, collect(p2.title+\"\t\") as references";
 		
 		int numberOfUpdates = 
 		context
@@ -57,23 +41,23 @@ public class KnowledgeGraphsCreator {
 	}
 	
 	private Tuple2<Integer,String> makeArticleStatements(Row r) {
-		String title = r.getString(0);
-		if (!title.endsWith(".")) title += ".";
-		String abs = r.getString(3);
-		String[] refs = r.get(4).toString().replaceAll("\\[|\\]", "").split("\t,");
+		String title = formatTitle(r.getString(0));
+		String abs = r.getString(1);
+		String[] refs = r.get(2).toString().replaceAll("\\[|\\]", "").split("\t,");
 		
 		StringBuilder build = new StringBuilder();
-		if (abs!=null)
-			build.append("insert {?article opus:abstract \""+abs+"\"}"
+		if (abs!=null) {
+			String abss = abs.replaceAll("[^a-zA-Z0-9 ]", "").toLowerCase();
+			build.append("insert {?article opus:abstract \""+abss+"\" } "
 					+ "where {"
 					+ "?article rdfs:label \""+title+"\" . "
 					+ "?article opus:author ?seq . "
 					+ "?seq ?x ?author . "
 					+ "?author rdf:type foaf:Person};\n");
+		}
 		
 		for (String rr : refs) {
-			String ref = rr.trim();
-			if (!ref.endsWith(".")) ref += ".";
+			String ref = formatTitle(rr.trim());
 			build.append("insert {"
 					+ "?article opus:cites ?ref . "
 					+ "?ref <http://purl.org/ontology/bibo/citedBy> ?article"
@@ -98,7 +82,7 @@ public class KnowledgeGraphsCreator {
 					+ "}}filter(?auth1 != ?auth2)};\n");
 		}
 		
-		int insertStatements = 3*refs.length;
+		int insertStatements = 2*refs.length;
 		if (abs!=null) insertStatements++;
 		return new Tuple2<>(insertStatements, build.toString());
 	}
@@ -110,9 +94,9 @@ public class KnowledgeGraphsCreator {
 		return tuple._1;
 	}
 	
-	public void parseAuthors(Neo4JavaSparkContext context) {
-		String query = "MATCH (p:Paper)"
-				+ "WHERE p.year IN "+yearRange
+	public void parseAuthors(Neo4JavaSparkContext context, int start, int end) {
+		String query = "MATCH (p:Paper) "
+				+ "WHERE p.name >= "+start+" and p.name <= "+end+" "
 				+ "WITH p.title as t, SPLIT(p.author_ids, \",\") as ids "
 				+ "MATCH (a:Author) "
 				+ "WHERE a.name in ids "
@@ -120,12 +104,12 @@ public class KnowledgeGraphsCreator {
 		
 		int numberOfUpdates =
 		context
-		.queryRow(query, new HashMap<String,Object>())
-		.mapToPair(this::makeAuthorStatements)
-		.reduceByKey(String::concat)
-		.map(this::performUpdate)
-		.reduce(Integer::sum)
-		.intValue();
+			.queryRow(query, new HashMap<String,Object>())
+			.mapToPair(this::makeAuthorStatements)
+			.reduceByKey(String::concat)
+			.map(this::performUpdate)
+			.reduce(Integer::sum)
+			.intValue();
 	
 		System.out.println(numberOfUpdates);
 	}
@@ -135,7 +119,7 @@ public class KnowledgeGraphsCreator {
 		String interests = r.getString(1);
 		String[] papers = r.get(2).toString().replaceAll("\\[|\\]", "").split("\t,");
 		StringBuilder build = new StringBuilder();
-		int statementsCount=0;
+		int insertStatements=0;
 		if (papers.length>0 && interests!=null) {
 			
 			build.append("insert { ?author foaf:interest ?topic} where { "
@@ -143,8 +127,7 @@ public class KnowledgeGraphsCreator {
 					+ "?article opus:author ?s . ?s ?x ?author . ");
 			
 			for (int i=0; i<papers.length; i++) {
-				String p = papers[i].trim();
-				if (!p.endsWith(".")) p += ".";
+				String p = formatTitle(papers[i].trim());
 				build.append("{?article rdfs:label \""+p+"\"}");
 				if (i<papers.length-1) build.append(" union ");
 			}
@@ -158,9 +141,17 @@ public class KnowledgeGraphsCreator {
 			}
 			build.append("}}};\n");
 			
-			statementsCount = interestsArray.length; 
+			insertStatements = interestsArray.length + papers.length; 
 		}
-		return new Tuple2<>(statementsCount, build.toString());
+				
+		return new Tuple2<>(insertStatements, build.toString());
+	}
+	
+	private String formatTitle(String title) {
+		String newString = title.replaceAll("[^a-zA-Z0-9\\(\\)\\,\\.\\:\\-\\+ ]", "");
+		if (!newString.endsWith(".")) 
+			newString+=".";
+		return newString;
 	}
 
 }
