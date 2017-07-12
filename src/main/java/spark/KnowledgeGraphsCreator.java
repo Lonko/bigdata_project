@@ -10,6 +10,12 @@ import scala.Tuple2;
 
 //import static org.apache.spark.storage.StorageLevel.MEMORY_AND_DISK_SER;
 
+/**
+ * Performs parsing of DBLP Papers and Authors from linked Neo4j Citation Graphs.<br>
+ * Citation relations, papers abstracts and authors interests will be added to a given
+ * BlazeGraph RDF storage source, enriching SwetoDBLP ontology data. 
+ *
+ */
 public class KnowledgeGraphsCreator implements java.io.Serializable {
 	private static final long serialVersionUID = 1L;
 	
@@ -21,7 +27,14 @@ public class KnowledgeGraphsCreator implements java.io.Serializable {
 		rdfNamespace = namespace;
 	}
 	
-	public void parseArticles(Neo4JavaSparkContext context, int start, int end) { 
+	/**
+	 * Parse Articles from Neo4J citation graph
+	 * @param context Neo4JavaSparkContext context
+	 * @param start first Paper id
+	 * @param end last Paper id
+	 * @return number of INSERT updates performed
+	 */
+	public int parseArticles(Neo4JavaSparkContext context, int start, int end) { 
 		String query = "MATCH (p:Paper) "
 				+ "WHERE p.name >= "+start+" and p.name <= "+end+" "
 				+ "WITH p "
@@ -37,7 +50,7 @@ public class KnowledgeGraphsCreator implements java.io.Serializable {
 			.reduce(Integer::sum)
 			.intValue();
 		
-		System.out.println(numberOfUpdates);
+		return numberOfUpdates;
 	}
 	
 	private Tuple2<Integer,String> makeArticleStatements(Row r) {
@@ -94,7 +107,15 @@ public class KnowledgeGraphsCreator implements java.io.Serializable {
 		return tuple._1;
 	}
 	
-	public void parseAuthors(Neo4JavaSparkContext context, int start, int end) {
+	/**
+	 * Parse Authors from Neo4J author citation graph<br>
+	 * Authors are resolved starting from Papers in the specified ID range.
+	 * @param context Neo4JavaSparkContext context
+	 * @param start first Paper id
+	 * @param end last Paper id
+	 * @return number of INSERT updates performed
+	 */
+	public int parseAuthors(Neo4JavaSparkContext context, int start, int end) {
 		String query = "MATCH (p:Paper) "
 				+ "WHERE p.name >= "+start+" and p.name <= "+end+" "
 				+ "WITH p.title as t, SPLIT(p.author_ids, \",\") as ids "
@@ -111,7 +132,7 @@ public class KnowledgeGraphsCreator implements java.io.Serializable {
 			.reduce(Integer::sum)
 			.intValue();
 	
-		System.out.println(numberOfUpdates);
+		return numberOfUpdates;
 	}
 	
 	private Tuple2<Integer,String> makeAuthorStatements(Row r) {
@@ -141,7 +162,7 @@ public class KnowledgeGraphsCreator implements java.io.Serializable {
 			}
 			build.append("}}};\n");
 			
-			insertStatements = interestsArray.length + papers.length; 
+			insertStatements = interestsArray.length; 
 		}
 				
 		return new Tuple2<>(insertStatements, build.toString());

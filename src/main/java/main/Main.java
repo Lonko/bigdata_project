@@ -30,12 +30,18 @@ public class Main implements java.io.Serializable {
 		
 		int i=0;
 		while (i<totalPapers) {
+			int start = i+1;
+			int end = i+batchSize;
 			long timeMillis = System.currentTimeMillis();
-			kg.parseArticles(context, i+1, i+batchSize);
-			kg.parseAuthors(context, i+1, i+batchSize);
+			int papersStatements = kg.parseArticles(context, start, end);
+			int authorsStatements = kg.parseAuthors(context, start, end);
 			double elapsedTime = (double)(timeMillis - System.currentTimeMillis()) / 1000;
-			System.out.println(elapsedTime);
 			i += batchSize;
+			
+			System.out.println("FROM "+start+" TO "+end+" \n"
+							 + "Papers Statements: "+papersStatements+" \n"
+							 + "Authors Statements: "+authorsStatements+" \n"
+							 + "Elapsed time: "+elapsedTime+" \n");
 		}
 	}
 	
