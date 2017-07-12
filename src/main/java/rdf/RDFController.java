@@ -14,7 +14,6 @@ import org.openrdf.query.TupleQueryResult;
 
 import com.bigdata.rdf.sail.webapp.client.RemoteRepository;
 
-import connectors.BlazeGraphFactory;
 import models.Article;
 import models.Author;
 

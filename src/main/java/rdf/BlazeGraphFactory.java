@@ -1,4 +1,4 @@
-package connectors;
+package rdf;
 
 import java.util.logging.Level;
 import java.util.logging.Logger;
