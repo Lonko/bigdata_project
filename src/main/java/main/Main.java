@@ -30,6 +30,8 @@ public class Main implements java.io.Serializable {
 		int startIndex = Integer.valueOf(args[3]);
 		int endIndex = Integer.valueOf(args[4]);
 		
+		int total=0;
+		
 		int i=startIndex-1;
 		while (i<endIndex) {
 			int start = i+1;
@@ -37,14 +39,19 @@ public class Main implements java.io.Serializable {
 			long timeMillis = System.currentTimeMillis();
 			int papersStatements = kg.parseArticles(context, start, end);
 			int authorsStatements = kg.parseAuthors(context, start, end);
+			total += papersStatements+authorsStatements;
 			double elapsedTime = (double)(System.currentTimeMillis() - timeMillis) / 1000;
 			i = end;
 			
 			System.out.println("FROM "+start+" TO "+end+" \n"
 							 + "Papers Statements: "+papersStatements+" \n"
 							 + "Authors Statements: "+authorsStatements+" \n"
-							 + "Elapsed time: "+elapsedTime+" \n");
+							 + "Elapsed time: "+elapsedTime+" seconds\n");
 		}
+		
+		System.out.println("Total Statements: "+total);
+		
+		sc.stop();
 	}
 	
 }

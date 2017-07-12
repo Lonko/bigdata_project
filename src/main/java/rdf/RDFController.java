@@ -253,7 +253,7 @@ public class RDFController implements java.io.Serializable {
 	
 	public void closeConnection() {
 		try {
-			repo.getRemoteRepositoryManager().close();
+			repo.getBigdataSailRemoteRepository().shutDown();
 		} catch (Exception e) {
 			System.err.println("Could not close connection");
 		}

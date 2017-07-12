@@ -170,8 +170,9 @@ public class KnowledgeGraphsCreator implements java.io.Serializable {
 	
 	private String formatTitle(String title) {
 		String newString = title.replaceAll("[^a-zA-Z0-9\\(\\)\\,\\.\\:\\-\\+ ]", "");
-		if (!newString.endsWith(".")) 
+		if (!newString.isEmpty() && !newString.endsWith(".")) 
 			newString+=".";
+		System.out.println(title+", "+newString);
 		return newString;
 	}
 
