@@ -8,7 +8,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 import org.openrdf.query.BindingSet;
 import org.openrdf.query.TupleQueryResult;
@@ -95,7 +94,7 @@ public class RDFController implements java.io.Serializable {
 		try {
 			repo.prepareUpdate(prefixes()+update).evaluate();
 		} catch (Exception e) {
-			//TODO ...
+			System.err.println("EXCEPTION IN UPDATE: "+e.getMessage());
 		}
 	}
 	
@@ -132,18 +131,10 @@ public class RDFController implements java.io.Serializable {
 					titles.add(title);
 				}
 				
-				//Set<URI> visited = new HashSet<>(); // globally visited authors
-
-				if (!candidates.isEmpty()) {
-					for (String c : candidates.keySet()) {
-						//if (!visited.contains(c)) {
-							//Set<URI> rdfAuthors = new HashSet<>(getSameAuthors(c));
-							//visited.addAll(rdfAuthors);
-							//for (URI a : rdfAuthors) {
-						List<String> articles = candidates.get(c);
-						if (articlesDistance(author.getArticles(), articles)<threshold)
-							return "<"+c+">";
-					}
+				for (String c : candidates.keySet()) {
+					List<String> articles = candidates.get(c);
+					if (articlesDistance(author.getArticles(), articles)<threshold)
+						return "<"+c+">";
 				}
 				return "";
 			} finally {
@@ -238,10 +229,6 @@ public class RDFController implements java.io.Serializable {
 	 * @return the symmetric difference as a value between 0 and 1
 	 */
 	public double articlesDistance(List<String> list1, List<String> list2) {
-		list1.stream()
-		.map(t -> normalizeTitle(t))
-		.collect(Collectors.toSet());
-		
 		Set<String> articles = new HashSet<>(list1);
 		Set<String> otherArticles = new HashSet<>(list2);
 
@@ -269,12 +256,8 @@ public class RDFController implements java.io.Serializable {
 		try {
 			repo.getRemoteRepositoryManager().close();
 		} catch (Exception e) {
-			// TODO
+			System.err.println("Could not close connection");
 		}
-	}
-	
-	private String normalizeTitle(String title) {
-		return "";
 	}
 	
 	private String prefixes() {

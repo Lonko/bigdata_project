@@ -1,17 +1,11 @@
 package main;
 
 import java.util.HashMap;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-
-import models.Article;
-import models.Author;
 import rdf.RDFController;
+import scala.Tuple2;
 
 import org.apache.spark.SparkConf;
 import org.apache.spark.SparkContext;
-import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.sql.Row;
 import org.neo4j.spark.Neo4JavaSparkContext;
 
@@ -21,129 +15,103 @@ import org.neo4j.spark.Neo4JavaSparkContext;
 public class Main implements java.io.Serializable {
 	private static final long serialVersionUID = 1L;
 	
-	private final static String RDF_SERVICE = 
-			"http://ec2-34-212-137-94.us-west-2.compute.amazonaws.com:9999/blazegraph";
-			//"http://10.25.150.129:9999/blazegraph";
-	private final static String RDF_NAMESPACE = "kb";	
+	private final String rdfService;
+	private final String rdfNamespace;
+	
+	public Main(String service, String namespace) {
+		rdfService = service;
+		rdfNamespace = namespace;
+	}
 
 	public static void main(String[] args) {
+		if (args.length<2) {
+			System.out.println("USAGE:"
+					+ "<blazegraph server URL>"
+					+ "<blazegraph namespace>");
+			return;
+		}
+		
 		SparkConf conf = new SparkConf().setAppName("Authors-Articles KG");
 		SparkContext sc = new SparkContext(conf);
 		Neo4JavaSparkContext context = Neo4JavaSparkContext.neo4jContext(sc);
 		
-		Main main = new Main();
+		Main main = new Main(args[0], args[1]);
 		main.parseArticles(context);
 		//main.parseAuthors(context);
 	}
 	
 	private void parseArticles(Neo4JavaSparkContext context) {
-		
 		String query = "MATCH (p:Paper) "
-				+ "WHERE p.year IN [\"2000\",\"2001\",\"2002\",\"2003\",\"2004\",\"2005\"] "
+				//+ "WHERE p.year IN [\"2000\",\"2001\",\"2002\",\"2003\",\"2004\",\"2005\"] "
+				+ "WHERE p.title = \"RoadRunner: automatic data extraction from data-intensive web sites\" "
 				+ "WITH p "
 				+ "OPTIONAL MATCH (p)-[r]->(p2:Paper) "
 				+ "RETURN p.title, p.year, p.venue, p.abstract, collect(p2.title+\"\t\") as references";
 		
-		JavaRDD<Row> articleRows = context.queryRow(query, new HashMap<String,Object>());
-		JavaRDD<Article> articles = articleRows.map(this::makeArticle);
-		articles.foreachPartition(p -> updateArticlesPartition(p));
+		int numberOfUpdates = 
+		context
+			.queryRow(query, new HashMap<String,Object>())
+			.mapToPair(this::makeArticleStatements)
+			.reduceByKey(String::concat)
+			.map(this::performUpdate)
+			.reduce(Integer::sum)
+			.intValue();
+		
+		System.out.println(numberOfUpdates);
 	}
 	
-	private Article makeArticle(Row r) {
-		Article a = new Article(r.getString(0), r.getString(1),r.getString(2),r.getString(3));
+	private Tuple2<Integer,String> makeArticleStatements(Row r) {
+		String title = r.getString(0);
+		if (!title.endsWith(".")) title += ".";
+		String abs = r.getString(3);
 		String[] refs = r.get(4).toString().replaceAll("\\[|\\]", "").split("\t,");
-		for (String ref : refs) {
-			a.addReference(ref.trim());
+		
+		StringBuilder build = new StringBuilder();
+		if (abs!=null)
+			build.append("insert {?article opus:abstract \""+abs+"\"}"
+					+ "where {"
+					+ "?article rdfs:label \""+title+"\" . "
+					+ "?article opus:author ?seq . "
+					+ "?seq ?x ?author . "
+					+ "?author rdf:type foaf:Person};\n");
+		
+		for (String rr : refs) {
+			String ref = rr.trim();
+			if (!ref.endsWith(".")) ref += ".";
+			build.append("insert {"
+					+ "?article opus:cites ?ref . "
+					+ "?ref <http://purl.org/ontology/bibo/citedBy> ?article"
+					+ "} "
+					+ "where {"
+					+ "?article rdfs:label \""+title+"\" . "
+					+ "?ref rdfs:label \""+ref+"\""
+					+ "};\n"
+					+ "insert {?auth1 foaf:knows ?auth2}"
+					+ "where {"
+					+ "?article rdfs:label \""+title+"\" . "
+					+ "?article opus:author ?seq1 . "
+					+ "?seq1 ?x1 ?auth1 . "
+					+ "?auth1 rdf:type foaf:Person . "
+					+ "{"
+					+ "select ?auth2 "
+					+ "where {"
+					+ "?article2 rdfs:label \""+ref+"\" . "
+					+ "?article2 opus:author ?seq2 . "
+					+ "?seq2 ?x2 ?auth2 . "
+					+ "?auth2 rdf:type foaf:Person . "
+					+ "}}filter(?auth1 != ?auth2)};\n");
 		}
-		return a;
+		
+		int insertStatements = 3*refs.length;
+		if (abs!=null) insertStatements++;
+		return new Tuple2<>(insertStatements, build.toString());
 	}
 	
-	private void updateArticlesPartition(Iterator<Article> p) {
-		RDFController controller = new RDFController(RDF_SERVICE,RDF_NAMESPACE);
-		
-		Map<String,String> title2abstract = new HashMap<>();
-		
-		/* SPARQL Select couple of cited articles and save them on a Map*/
-		
-		StringBuilder buildQ = new StringBuilder("SELECT ?article ?citArticle WHERE {");
-		while (p.hasNext()) {
-			Article a = p.next();
-			String sourceTitle = a.getTitle();
-			String sourceTitle2;
-			if (sourceTitle.endsWith(".")) {
-				sourceTitle2 = sourceTitle.substring(0, sourceTitle.length()-1);
-			}
-			else sourceTitle2 = sourceTitle + ".";
-			
-			title2abstract.put(a.getTitle(), a.getArticleAbstract());
-			
-			for (String title : a.getReferences()) {
-				buildQ.append("{ ?article rdfs:label \"" + a.getTitle() + "\" . \n" 
-							 + "?citArticle rdfs:label \"" + title + "\"} \nUNION\n"
-							 + "{ ?article rdfs:label \"" + sourceTitle2 + "\" . \n"
-							 + "?citArticle rdfs:label \"" + title + "\"} \nUNION");
-			}
-		}
-		String select = buildQ.toString().substring(0, buildQ.length() - 5)+"}";
-		Map<String,List<String>> citationsMap = controller.getURICitationsMap(select);
-		
-		addArticlesCitations(controller, title2abstract, citationsMap);
-		addAuthorsCitations(controller, citationsMap);
-		
+	private int performUpdate(Tuple2<Integer,String> tuple) {
+		RDFController controller = new RDFController(rdfService,rdfNamespace);
+		controller.updateQuery(tuple._2);
 		controller.closeConnection();
-	}
-	
-	private void addArticlesCitations(RDFController controller, Map<String,String> title2abstract, 
-			Map<String,List<String>> citationsMap) {
-				
-		StringBuilder build = new StringBuilder();
-		for (Map.Entry<String, List<String>> citationList : citationsMap.entrySet()) {
-			build.append(updateCitationQuery(citationList, title2abstract));
-		}
-		String params = build.toString();
-		String update = "DELETE {\n+"+params+"\n} INSERT {\n"+params+"}";
-		controller.updateQuery(update);
-	}
-	
-	private String updateCitationQuery(Map.Entry<String, List<String>> citationList, Map<String,String> title2abstract) {
-		StringBuilder build = new StringBuilder();
-		
-		String abs = title2abstract.get(citationList.getKey());
-		if (abs!=null) build.append(citationList.getKey()+" opus:abstract \""+abs+"\" . \n");
-		for (String citation : citationList.getValue())
-			build.append(
-				citationList.getKey() + " opus:cites " +citation+ " . \n" 
-				+citation+" <http://purl.org/ontology/bibo/citedBy> "+citationList.getKey()+" . \n");
-		
-		return build.toString();
-	}
-	
-	private void addAuthorsCitations(RDFController controller, Map<String,List<String>> citationsMap) {
-		StringBuilder build = new StringBuilder(
-				"DELETE { "
-				+ "?auth1 foaf:publications ?article . \n"
-				+ "?auth1 foaf:knows ?auth2 . \n"
-				+ "}\n"
-				+"INSERT { \n"
-				+ "?auth1 foaf:publications ?article . \n"
-				+ "?auth1 foaf:knows ?auth2 . \n"
-				+ "}\n"
-				+"WHERE {");
-
-		for (Map.Entry<String, List<String>> citationList : citationsMap.entrySet()) {
-			for (String citation : citationList.getValue()) {
-				build.append("{"+citationList.getKey()+" opus:cites "+citation+" . \n" 
-						+citationList.getKey()+" opus:author ?Seq1 . \n" 
-						+citation+" opus:author ?Seq2 . \n"
-						+"?Seq1 ?x ?auth1 . \n"
-						+"?Seq2 ?x ?auth2 . \n"
-						+"BIND(" + citationList.getKey() + " AS ?article)} \n"
-						+"UNION");
-			}
-		}
-		
-		String update = build.toString().substring(0, build.length() - 5)+"}";
-		controller.updateQuery(update);
+		return tuple._1;
 	}
 	
 	private void parseAuthors(Neo4JavaSparkContext context) {
@@ -154,37 +122,49 @@ public class Main implements java.io.Serializable {
 				+ "WHERE a.name in ids "
 				+ "RETURN a.author_name, a.interests, collect(t+\"\t\") as titles";
 		
-		JavaRDD<Row> authorRows = context.queryRow(query, new HashMap<String,Object>());
-		JavaRDD<Author> authors = authorRows.map(this::makeAuthor);
-		
-		authors
-		.foreachPartition(p -> {
-			RDFController controller = new RDFController(RDF_SERVICE,RDF_NAMESPACE);
-			p.forEachRemaining(a -> updateAuthor(a,controller));			
-			controller.closeConnection();
-		});
+		int numberOfUpdates =
+		context
+		.queryRow(query, new HashMap<String,Object>())
+		.mapToPair(this::makeAuthorStatements)
+		.reduceByKey(String::concat)
+		.map(this::performUpdate)
+		.reduce(Integer::sum)
+		.intValue();
+	
+		System.out.println(numberOfUpdates);
 	}
 	
-	private Author makeAuthor(Row r) {
-		Author a = new Author(r.getString(0), r.getString(1));
-		String[] titles = r.get(2).toString().replaceAll("\\[|\\]", "").split("\t,");
-		for (String t : titles) {
-			a.addArticle(t);
+	private Tuple2<Integer,String> makeAuthorStatements(Row r) {
+		String name = r.getString(0);
+		String interests = r.getString(1);
+		String[] papers = r.get(2).toString().replaceAll("\\[|\\]", "").split("\t,");
+		StringBuilder build = new StringBuilder();
+		int statementsCount=0;
+		if (papers.length>0 && interests!=null) {
+			
+			build.append("insert { ?author foaf:interest ?topic} where { "
+					+ "?author foaf:name \""+name+"\" . "
+					+ "?article opus:author ?s . ?s ?x ?author . ");
+			
+			for (int i=0; i<papers.length; i++) {
+				String p = papers[i].trim();
+				if (!p.endsWith(".")) p += ".";
+				build.append("{?article rdfs:label \""+p+"\"}");
+				if (i<papers.length-1) build.append(" union ");
+			}
+			
+			String[] interestsArray = interests.split(";");
+			build.append("{ select ?topic where {");
+			for (int i=0; i<interestsArray.length; i++) {
+				String in = interestsArray[i];
+				build.append("{?topic rdfs:label \""+in+"\"}");
+				if (i<interestsArray.length-1) build.append(" union ");
+			}
+			build.append("}}};\n");
+			
+			statementsCount = interestsArray.length; 
 		}
-		return a;
+		return new Tuple2<>(statementsCount, build.toString());
 	}
-	
-	private void updateAuthor(Author author, RDFController controller) {
-		String authorRDF = controller.lookUpAuthor(author);
-		StringBuilder build = new StringBuilder("INSERT { \n"
-				+authorRDF+ " foaf:interest ?topic . \n } \n"
-				+"WHERE {\n");
-		
-		for (String interest : author.getInterests()) {
-			build.append("{ ?topic rdf:type foaf:Document . \n"
-					+ "?topic rdfs:label \""+interest+"\"} \nUNION");
-		}
-		String update = build.toString().substring(0, build.length() - 5)+"}";
-		controller.updateQuery(update);
-	}
+
 }
