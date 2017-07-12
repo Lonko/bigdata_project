@@ -37,7 +37,7 @@ public class Main implements java.io.Serializable {
 			long timeMillis = System.currentTimeMillis();
 			int papersStatements = kg.parseArticles(context, start, end);
 			int authorsStatements = kg.parseAuthors(context, start, end);
-			double elapsedTime = (double)(timeMillis - System.currentTimeMillis()) / 1000;
+			double elapsedTime = (double)(System.currentTimeMillis() - timeMillis) / 1000;
 			i = end;
 			
 			System.out.println("FROM "+start+" TO "+end+" \n"
