@@ -45,6 +45,7 @@ public class KnowledgeGraphsCreator implements java.io.Serializable {
 		context
 			.queryRow(query, new HashMap<String,Object>())
 			.mapToPair(this::makeArticleStatements)
+			.filter(t -> !t._2.isEmpty())
 			.reduceByKey(String::concat)
 			.map(this::performUpdate)
 			.reduce(Integer::sum)
@@ -55,6 +56,10 @@ public class KnowledgeGraphsCreator implements java.io.Serializable {
 	
 	private Tuple2<Integer,String> makeArticleStatements(Row r) {
 		String title = formatTitle(r.getString(0));
+		if (title.isEmpty()) return new Tuple2<>(0,"");
+		
+		boolean validArticles=false;
+		int inserts = 0;
 		String abs = r.getString(1);
 		String[] refs = r.get(2).toString().replaceAll("\\[|\\]", "").split("\t,");
 		
@@ -67,11 +72,13 @@ public class KnowledgeGraphsCreator implements java.io.Serializable {
 					+ "?article opus:author ?seq . "
 					+ "?seq ?x ?author . "
 					+ "?author rdf:type foaf:Person};\n");
+			inserts++;
 		}
 		
 		for (String rr : refs) {
 			String ref = formatTitle(rr.trim());
-			build.append("insert {"
+			if (!ref.isEmpty()) {
+				build.append("insert {"
 					+ "?article opus:cites ?ref . "
 					+ "?ref <http://purl.org/ontology/bibo/citedBy> ?article"
 					+ "} "
@@ -93,11 +100,12 @@ public class KnowledgeGraphsCreator implements java.io.Serializable {
 					+ "?seq2 ?x2 ?auth2 . "
 					+ "?auth2 rdf:type foaf:Person . "
 					+ "}}filter(?auth1 != ?auth2)};\n");
+				inserts++;
+				validArticles=true;
+			}
 		}
-		
-		int insertStatements = 2*refs.length;
-		if (abs!=null) insertStatements++;
-		return new Tuple2<>(insertStatements, build.toString());
+
+		return (validArticles) ? new Tuple2<>(inserts, build.toString()) : new Tuple2<>(0,"");
 	}
 	
 	private int performUpdate(Tuple2<Integer,String> tuple) {
@@ -141,6 +149,7 @@ public class KnowledgeGraphsCreator implements java.io.Serializable {
 		String[] papers = r.get(2).toString().replaceAll("\\[|\\]", "").split("\t,");
 		StringBuilder build = new StringBuilder();
 		int insertStatements=0;
+		boolean validArticles=false;
 		if (papers.length>0 && interests!=null) {
 			
 			build.append("insert { ?author foaf:interest ?topic} where { "
@@ -149,10 +158,15 @@ public class KnowledgeGraphsCreator implements java.io.Serializable {
 			
 			for (int i=0; i<papers.length; i++) {
 				String p = formatTitle(papers[i].trim());
-				build.append("{?article rdfs:label \""+p+"\"}");
-				if (i<papers.length-1) build.append(" union ");
+				if (!p.isEmpty()) {
+					validArticles=true;
+					build.append("{?article rdfs:label \""+p+"\"}");
+					if (i<papers.length-1) build.append(" union ");
+				}
 			}
-			
+			if (!validArticles)
+				return new Tuple2<>(0,"");
+
 			String[] interestsArray = interests.split(";");
 			build.append("{ select ?topic where {");
 			for (int i=0; i<interestsArray.length; i++) {
@@ -169,11 +183,7 @@ public class KnowledgeGraphsCreator implements java.io.Serializable {
 	}
 	
 	private String formatTitle(String title) {
-		String newString = title.replaceAll("[^a-zA-Z0-9\\(\\)\\,\\.\\:\\-\\+ ]", "");
-		if (!newString.isEmpty() && !newString.endsWith(".")) 
-			newString+=".";
-		System.out.println(title+", "+newString);
-		return newString;
+		return title.replaceAll("[^a-zA-Z0-9\\(\\)\\,\\.\\:\\-\\+ ]", "").toLowerCase();
 	}
 
 }

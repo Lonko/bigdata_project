@@ -10,7 +10,7 @@ public class Main implements java.io.Serializable {
 	private static final long serialVersionUID = 1L;
 
 	public static void main(String[] args) {
-		if (args.length<4) {
+		if (args.length<5) {
 			System.out.println("USAGE:\n"
 					+ "<blazegraph server URL>\n"
 					+ "<blazegraph namespace>\n"
