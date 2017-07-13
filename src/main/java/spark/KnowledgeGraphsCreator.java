@@ -45,9 +45,8 @@ public class KnowledgeGraphsCreator implements java.io.Serializable {
 		context
 			.queryRow(query, new HashMap<String,Object>())
 			.mapToPair(this::makeArticleStatements)
-			.filter(t -> !t._2.isEmpty())
 			.reduceByKey(String::concat)
-			.map(this::performUpdate)
+			.map(this::updateAndGetKey)
 			.reduce(Integer::sum)
 			.intValue();
 		
@@ -108,10 +107,12 @@ public class KnowledgeGraphsCreator implements java.io.Serializable {
 		return (validArticles) ? new Tuple2<>(inserts, build.toString()) : new Tuple2<>(0,"");
 	}
 	
-	private int performUpdate(Tuple2<Integer,String> tuple) {
-		RDFController controller = new RDFController(rdfService,rdfNamespace);
-		controller.updateQuery(tuple._2);
-		controller.closeConnection();
+	private int updateAndGetKey(Tuple2<Integer,String> tuple) {
+		if (!tuple._2.isEmpty()) {
+			RDFController controller = new RDFController(rdfService,rdfNamespace);
+			controller.updateQuery(tuple._2);
+			controller.closeConnection();
+		}
 		return tuple._1;
 	}
 	
@@ -136,7 +137,7 @@ public class KnowledgeGraphsCreator implements java.io.Serializable {
 			.queryRow(query, new HashMap<String,Object>())
 			.mapToPair(this::makeAuthorStatements)
 			.reduceByKey(String::concat)
-			.map(this::performUpdate)
+			.map(this::updateAndGetKey)
 			.reduce(Integer::sum)
 			.intValue();
 	
@@ -171,7 +172,7 @@ public class KnowledgeGraphsCreator implements java.io.Serializable {
 			build.append("{ select ?topic where {");
 			for (int i=0; i<interestsArray.length; i++) {
 				String in = interestsArray[i];
-				build.append("{?topic rdfs:label \""+in+"\"}");
+				build.append("{?topic rdf:type foaf:Document . ?topic rdfs:label \""+in+"\"}");
 				if (i<interestsArray.length-1) build.append(" union ");
 			}
 			build.append("}}};\n");
