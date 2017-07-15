@@ -263,7 +263,8 @@ public class RDFController implements java.io.Serializable {
 		return "prefix foaf: <http://xmlns.com/foaf/0.1/>\n" + 
 				"prefix dc: <http://purl.org/dc/elements/1.1/>\n" + 
 				"prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>\n" + 
-				"prefix opus: <http://lsdis.cs.uga.edu/projects/semdis/opus#>\n\n";
+				"prefix opus: <http://lsdis.cs.uga.edu/projects/semdis/opus#>\n" +
+				"prefix bibo: <http://purl.org/ontology/bibo#>\n\n";
 	}
 
 }

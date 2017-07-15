@@ -65,40 +65,28 @@ public class KnowledgeGraphsCreator implements java.io.Serializable {
 		StringBuilder build = new StringBuilder();
 		if (abs!=null) {
 			String abss = abs.replaceAll("[^a-zA-Z0-9 ]", "").toLowerCase();
-			build.append("insert {?article opus:abstract \""+abss+"\" } "
-					+ "where {"
-					+ "?article rdfs:label \""+title+"\" . "
-					+ "?article opus:author ?seq . "
-					+ "?seq ?x ?author . "
-					+ "?author rdf:type foaf:Person};\n");
+			build.append("insert {?a opus:abstract \""+abss+"\" } "
+					+ "where {?a rdfs:label \""+title+"\"};\n");
 			inserts++;
 		}
 		
 		for (String rr : refs) {
 			String ref = formatTitle(rr.trim());
 			if (!ref.isEmpty()) {
-				build.append("insert {"
-					+ "?article opus:cites ?ref . "
-					+ "?ref <http://purl.org/ontology/bibo/citedBy> ?article"
-					+ "} "
+				build.append("insert {?a opus:cites ?r . ?r bibo:citedBy ?a} "
+					+ "where {?a rdfs:label \""+title+"\" . ?r rdfs:label \""+ref+"\"};\n"
+					+ "insert {?a1 foaf:knows ?a2}"
 					+ "where {"
-					+ "?article rdfs:label \""+title+"\" . "
-					+ "?ref rdfs:label \""+ref+"\""
-					+ "};\n"
-					+ "insert {?auth1 foaf:knows ?auth2}"
-					+ "where {"
-					+ "?article rdfs:label \""+title+"\" . "
-					+ "?article opus:author ?seq1 . "
-					+ "?seq1 ?x1 ?auth1 . "
-					+ "?auth1 rdf:type foaf:Person . "
+					+ "?a rdfs:label \""+title+"\" . "
+					+ "?a opus:author ?s1 . ?s1 ?x1 ?a1 . "
+					+ "?a1 rdf:type foaf:Person . "
 					+ "{"
-					+ "select ?auth2 "
+					+ "select ?a2 "
 					+ "where {"
-					+ "?article2 rdfs:label \""+ref+"\" . "
-					+ "?article2 opus:author ?seq2 . "
-					+ "?seq2 ?x2 ?auth2 . "
-					+ "?auth2 rdf:type foaf:Person . "
-					+ "}}filter(?auth1 != ?auth2)};\n");
+					+ "?ar rdfs:label \""+ref+"\" . "
+					+ "?ar opus:author ?s2 . ?s2 ?x2 ?a2 . "
+					+ "?a2 rdf:type foaf:Person}} "
+					+ "filter(?a1 != ?a2)};\n");
 				inserts++;
 				validArticles=true;
 			}
@@ -153,15 +141,15 @@ public class KnowledgeGraphsCreator implements java.io.Serializable {
 		boolean validArticles=false;
 		if (papers.length>0 && interests!=null) {
 			
-			build.append("insert { ?author foaf:interest ?topic} where { "
-					+ "?author foaf:name \""+name+"\" . "
-					+ "?article opus:author ?s . ?s ?x ?author . ");
+			build.append("insert { ?a foaf:interest ?t} where { "
+					+ "?a foaf:name \""+name+"\" . "
+					+ "?ar opus:author ?s . ?s ?x ?a . ");
 			
 			for (int i=0; i<papers.length; i++) {
 				String p = formatTitle(papers[i].trim());
 				if (!p.isEmpty()) {
 					validArticles=true;
-					build.append("{?article rdfs:label \""+p+"\"}");
+					build.append("{?ar rdfs:label \""+p+"\"}");
 					if (i<papers.length-1) build.append(" union ");
 				}
 			}
@@ -169,10 +157,10 @@ public class KnowledgeGraphsCreator implements java.io.Serializable {
 				return new Tuple2<>(0,"");
 
 			String[] interestsArray = interests.split(";");
-			build.append("{ select ?topic where {");
+			build.append("{ select ?t where {");
 			for (int i=0; i<interestsArray.length; i++) {
 				String in = interestsArray[i];
-				build.append("{?topic rdf:type foaf:Document . ?topic rdfs:label \""+in+"\"}");
+				build.append("{?t rdf:type foaf:Document . ?t rdfs:label \""+in+"\"}");
 				if (i<interestsArray.length-1) build.append(" union ");
 			}
 			build.append("}}};\n");
