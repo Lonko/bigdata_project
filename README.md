@@ -18,7 +18,7 @@ Uso:
   - Indice del primo nodo (in Neo4J)
   - Indice dell'ultimo nodo (in Neo4J)
   ````
-  spark-submit \
+  $SPARK_HOME/bin/spark-submit \
 	--class "main.Main" \
 	--master yarn \
 	--driver-memory 12g \
